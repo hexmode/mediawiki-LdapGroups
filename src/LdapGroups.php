@@ -31,8 +31,7 @@ class LdapGroups {
 		// FIXME: This should be dynamically loaded
 		// key needs to be lower case
 		$this->groupMap
-            = [ "cn=g00285178,ou=groups,dc=cdiad,dc=ge,dc=com" => "NavAndGuidance",
-                "cn=opma_nixusers,ou=security group,dc=cdiad,dc=ge,dc=com" => "NixUsers" ];
+            = [ "cn=nixusers,ou=groups,dc=example,dc=com" => "NixUsers" ];
 	}
 
 	static public function newFromIniFile( $iniFile = null ) {

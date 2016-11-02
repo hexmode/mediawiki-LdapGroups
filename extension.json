@@ -9,9 +9,6 @@
 	"url": "https://www.mediawiki.org/wiki/Extension:LdapGroups",
 	"descriptionmsg": "ldapgroups-desc",
 	"type": "specialpage",
-	"SpecialPages": {
-		"LdapGroups": "LdapGroups"
-	},
 	"MessagesDirs": {
 		"LdapGroups": [
 			"i18n"
