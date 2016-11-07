@@ -2,16 +2,21 @@
 
 namespace LdapGroups;
 
+use GlobalVarConfig;
+use MWException;
+use User;
+
 class LdapGroups {
 	protected $ad;
 	protected $param;
-	protected $groupMap;
+	protected $adGroupMap;
+	protected $mwGroupMap;
 
 	public function __construct( $param ) {
 		wfDebug( __METHOD__ );
 		$this->ad = ldap_connect( $param['server'] );
 		if ( !$this->ad ) {
-			throw new \MWException( "Error Connecting to AD!" );
+			throw new MWException( "Error Connecting to LDAP server.!" );
 		}
 		$this->param = $param;
 
@@ -20,7 +25,7 @@ class LdapGroups {
 		if ( !ldap_bind( $this->ad, $this->param['user'],
 						 $this->param['pass'] )
 		) {
-			throw new \MWException( "Couldn't bind to LDAP server: " .
+			throw new MWException( "Couldn't bind to LDAP server: " .
 								   ldap_error( $this->ad ) );
 		}
 
@@ -28,41 +33,61 @@ class LdapGroups {
 	}
 
 	protected function setupGroupMap() {
-		// FIXME: This should be dynamically loaded
-		// key needs to be lower case
-		$this->groupMap
-            = [ "cn=nixusers,ou=groups,dc=example,dc=com" => "NixUsers" ];
+		// FIXME: This should be in memcache so it can be dynamically updated
+		global $wgLDAPGroupMap;
+
+		global $wgGroupPermissions, $wgAddGroups, $wgRemoveGroups;
+
+		$groups = array_keys( $groupMap );
+		$nonLDAPGroups = array_diff( array_keys( $wgGroupPermissions ), $groups );
+
+		foreach( $groupMap as $name => $DNs ) {
+			if ( !isset( $wgGroupPermissions[$name] ) ) {
+				$wgGroupPermissions[$name] = $wgGroupPermissions['user'];
+			}
+			foreach ($DNs as $key) {
+				$lowAD = strtolower( $key );
+				$this->mwGroupMap[ $name ][] = $lowAD;
+				$this->adGroupMap[ $lowAD ] = $name;
+			}
+		}
+
+		// Restrict the ability of users to change these rights
+		foreach ( array_unique( array_keys( $wgGroupPermissions ) ) as $group ) {
+			if ( isset( $wgGroupPermissions[$group]['userrights'] ) &&
+				 $wgGroupPermissions[$group]['userrights'] ) {
+				$wgGroupPermissions[$group]['userrights'] = false;
+				if ( !isset( $wgAddGroups[$group] ) ) {
+					$wgAddGroups[$group] = $nonLDAPGroups;
+				}
+				if ( !isset( $wgRemoveGroups[$group] ) ) {
+					$wgRemoveGroups[$group] = $nonLDAPGroups;
+				}
+			}
+		}
 	}
 
 	static public function newFromIniFile( $iniFile = null ) {
 		if ( !is_readable( $iniFile ) ) {
-			throw new \MWException( "Can't read $iniFile" );
+			throw new MWException( "Can't read $iniFile" );
 		}
 		$data = parse_ini_file( $iniFile );
 		if ( $data === false ) {
-			throw new \MWException( "Error reading $iniFile" );
+			throw new MWException( "Error reading $iniFile" );
 		}
 
 		return new LdapGroups( $data );
 	}
 
-	protected function doADSearch( $match, $search = null ) {
-		if ( $search === null ) {
-			$search = $this->param['searchattr'] . "=";
-		}
+	protected function doADSearch( $match ) {
 		$basedn = $this->param['basedn'];
 
 		wfProfileIn( __METHOD__ . " - AD Search" );
 		$runTime = -microtime( true );
-		$res = ldap_search(
-			$this->ad,
-			$basedn,
-			"$search$match",
-			[ "*" ]
-		);
+		$res = ldap_search( $this->ad, $basedn, $match, [ "*" ] );
 		if ( !$res ) {
 			wfProfileOut( __METHOD__ );
-			throw new \MWException( "Error in AD search: " .
+			throw new MWException( "Error in AD search: " .
 								   ldap_error( $this->ad ) );
 		}
 
@@ -73,17 +98,23 @@ class LdapGroups {
 		return $entry;
 	}
 
-	public function fetchADData( \User $user ) {
+	public function fetchADData( User $user ) {
+		$email = $user->getEmail();
+
+		if( !$email ) {
+			// Fail early
+			throw new MWException( "No email found for $user" );
+		}
 		wfDebug( __METHOD__ . ": Fetching user data for $user from AD\n" );
-		$entry = $this->doADSearch( 'Mark.Hershberger@ge.com' );
+		$entry = $this->doADSearch( $this->param['searchattr'] . "=" . $user->getEmail() );
 
 		if ( $entry['count'] === 0 ) {
 			wfProfileOut( __METHOD__ );
-			throw new \MWException( "No user found with the ID: " . $user->getEmail() );
+			throw new MWException( "No user found with the ID: " . $user->getEmail() );
 		}
 		if ( $entry['count'] !== 1 ) {
 			wfProfileOut( __METHOD__ );
-			throw new \MWException( "More than one user found " .
+			throw new MWException( "More than one user found " .
 								   "with the ID: $user" );
 		}
 
@@ -92,34 +123,42 @@ class LdapGroups {
 		return $this->adData;
 	}
 
-	public function mapGroups( \User $user ) {
-		$groups = [];
+	public function mapGroups( User $user ) {
+		# Create a list of AD groups this person is a member of
+		$memberOf = [];
 		if ( isset( $this->adData['memberof'] ) ) {
-			$groups = array_flip(
-                array_map(
-                    function ($g) {
-                        return strtolower( $g );
-                    }, array_values( $this->adData['memberof'] ) ) );
+			$tmp = array_map( 'strtolower',$this->adData['memberof'] );
+			unset( $tmp['count'] );
+			$memberOf = array_flip( $tmp );
 		}
 
-		$inGroups = array_flip( $user->getGroups() );
-		foreach ( $this->groupMap as $ADGroup => $MWGroup ) {
-			if ( isset( $groups[ $ADGroup ] ) && !isset( $inGroups[ $MWGroup ] )  ) {
-				wfDebugLog( __METHOD__, "Adding $user to $MWGroup" );
-				$user->addGroup( $MWGroup );
-                $user->saveSettings();
-			} else if ( !isset( $groups[ $ADGroup ] ) && isset( $inGroups[ $MWGroup ] )  ) {
-				wfDebugLog( __METHOD__, "Removing $user from $MWGroup" );
-				$user->removeGroup( $MWGroup );
-                $user->saveSettings();
+		# This is a list of AD groups that map to MW groups we already have
+		$hasControlledGroups = array_intersect( $this->adGroupMap, $user->getGroups() );
+
+		# This is a list of groups that map to MW groups we do NOT already have
+		$notControlledGroups = array_diff( $this->adGroupMap, $user->getGroups() );
+
+		# MW Groups that should be added because they aren't in our list of MW groups
+		$addThese = array_keys(
+			array_flip( array_intersect_key( $notControlledGroups, $memberOf ) ) );
+
+		# MW Groups that should be removed because we don't have any of AD groups
+		foreach ( array_keys( $this->mwGroupMap ) as $checkGroup ) {
+			$matched = array_intersect( $this->mwGroupMap[$checkGroup], array_flip( $memberOf ) );
+			if( count( $matched ) === 0 ) {
+				$user->removeGroup( $checkGroup );
 			}
+		}
+
+		foreach ( $addThese as $group ) {
+			$user->addGroup( $group );
 		}
 	}
 
 	// This hook is probably not the right place.
 	static public function loadUser( $user, $email ) {
 		// FIXME use config
-        global $IP;
+		global $IP;
 		$here = self::newFromIniFile( "$IP/ldap.ini" );
 
 		$here->fetchADData( $user, $email );
