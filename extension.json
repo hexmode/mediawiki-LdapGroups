@@ -27,7 +27,7 @@
 	],
 	"config": {
 		"_prefix": "LdapGroups",
-		"ldapini": "ldap.ini",
+		"IniFile": "",
 		"UseADNestedQueries": false
 	},
 	"manifest_version": 1
