@@ -1,0 +1,34 @@
+{
+	"name": "LdapGroups",
+	"version": "0.1.0",
+	"license-name": "GPL-3.0+",
+	"author": [
+		"[http://mwstake.org Mark A. Hershberger]"
+	],
+	"require": [ "1.26" ],
+	"url": "https://www.mediawiki.org/wiki/Extension:LdapGroups",
+	"descriptionmsg": "ldapgroups-desc",
+	"type": "specialpage",
+	"MessagesDirs": {
+		"LdapGroups": [
+			"i18n"
+		]
+	},
+	"AutoloadClasses": {
+		"LdapGroups\\LdapGroups": "src/LdapGroups.php"
+	},
+	"GroupPermissions": {
+		"sysop": {
+			"manageldapgroups": true
+		}
+	},
+	"AvailableRights": [
+		"manageldapgroups"
+	],
+	"config": {
+		"_prefix": "LdapGroups",
+		"ldapini": "ldap.ini",
+		"UseADNestedQueries": false
+	},
+	"manifest_version": 1
+}
