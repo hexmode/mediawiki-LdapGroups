@@ -26,8 +26,9 @@
 		"manageldapgroups"
 	],
 	"config": {
-		"_prefix": "ldapgroups_",
-		"ldapini": "ldap.ini"
+		"_prefix": "LdapGroups",
+		"ldapini": "ldap.ini",
+		"UseADNestedQueries": false
 	},
 	"manifest_version": 1
 }
