@@ -25,10 +25,16 @@
 	"AvailableRights": [
 		"manageldapgroups"
 	],
+	"ConfigRegistry": {
+		"LdapGroups": "LdapGroups\\LdapGroups::makeConfig"
+	},
 	"config": {
 		"_prefix": "LdapGroups",
 		"IniFile": "",
-		"UseADNestedQueries": false
+		"Map": {
+			"NixUsers": [ "cn=nixusers,ou=Groups,o=top" ]
+		},
+		"UseMatchingRuleInChainQueries": false
 	},
 	"manifest_version": 1
 }
