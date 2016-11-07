@@ -35,11 +35,13 @@ class LdapGroups {
 	protected function setupGroupMap() {
 		// FIXME: This should be in memcache so it can be dynamically updated
 		global $wgLDAPGroupMap;
+		$groupMap = $wgLDAPGroupMap;
 
 		global $wgGroupPermissions, $wgAddGroups, $wgRemoveGroups;
 
 		$groups = array_keys( $groupMap );
-		$nonLDAPGroups = array_diff( array_keys( $wgGroupPermissions ), $groups );
+		$nonLDAPGroups = array_diff( array_keys( $wgGroupPermissions ),
+									 $groups );
 
 		foreach( $groupMap as $name => $DNs ) {
 			if ( !isset( $wgGroupPermissions[$name] ) ) {
@@ -53,7 +55,9 @@ class LdapGroups {
 		}
 
 		// Restrict the ability of users to change these rights
-		foreach ( array_unique( array_keys( $wgGroupPermissions ) ) as $group ) {
+		foreach (
+			array_unique( array_keys( $wgGroupPermissions ) ) as $group )
+		{
 			if ( isset( $wgGroupPermissions[$group]['userrights'] ) &&
 				 $wgGroupPermissions[$group]['userrights'] ) {
 				$wgGroupPermissions[$group]['userrights'] = false;
@@ -106,11 +110,13 @@ class LdapGroups {
 			throw new MWException( "No email found for $user" );
 		}
 		wfDebug( __METHOD__ . ": Fetching user data for $user from AD\n" );
-		$entry = $this->doADSearch( $this->param['searchattr'] . "=" . $user->getEmail() );
+		$entry = $this->doADSearch( $this->param['searchattr'] .
+									"=" . $user->getEmail() );
 
 		if ( $entry['count'] === 0 ) {
 			wfProfileOut( __METHOD__ );
-			throw new MWException( "No user found with the ID: " . $user->getEmail() );
+			throw new MWException( "No user found with the ID: " .
+								   $user->getEmail() );
 		}
 		if ( $entry['count'] !== 1 ) {
 			wfProfileOut( __METHOD__ );
@@ -133,18 +139,24 @@ class LdapGroups {
 		}
 
 		# This is a list of AD groups that map to MW groups we already have
-		$hasControlledGroups = array_intersect( $this->adGroupMap, $user->getGroups() );
+		$hasControlledGroups = array_intersect( $this->adGroupMap,
+												$user->getGroups() );
 
 		# This is a list of groups that map to MW groups we do NOT already have
-		$notControlledGroups = array_diff( $this->adGroupMap, $user->getGroups() );
+		$notControlledGroups = array_diff( $this->adGroupMap,
+										   $user->getGroups() );
 
-		# MW Groups that should be added because they aren't in our list of MW groups
+		# AD-mapped MW Groups that should be added because they aren't
+		# in the user's list of MW groups
 		$addThese = array_keys(
-			array_flip( array_intersect_key( $notControlledGroups, $memberOf ) ) );
+			array_flip( array_intersect_key( $notControlledGroups,
+											 $memberOf ) ) );
 
-		# MW Groups that should be removed because we don't have any of AD groups
+		# MW Groups that should be removed because the user doesn't have any
+		# of AD groups
 		foreach ( array_keys( $this->mwGroupMap ) as $checkGroup ) {
-			$matched = array_intersect( $this->mwGroupMap[$checkGroup], array_flip( $memberOf ) );
+			$matched = array_intersect( $this->mwGroupMap[$checkGroup],
+										array_flip( $memberOf ) );
 			if( count( $matched ) === 0 ) {
 				$user->removeGroup( $checkGroup );
 			}
@@ -167,4 +179,3 @@ class LdapGroups {
 		$here->mapGroups( $user );
 	}
 }
-
