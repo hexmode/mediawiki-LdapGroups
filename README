@@ -1,0 +1,38 @@
+== LdapGroups ==
+
+This is MediaWiki extension to allow users to manage their MediaWiki groups using a directory server via LDAP such as Microsoft's ActiveDirectory.
+
+You need to specify a file in [https://en.wikipedia.org/wiki/INI_file#Format ini format] with the authenticaton credentials to use to connect to the directory server with.
+
+<source lang="ini">
+[main]
+	server = ServerNAme
+	user = 'UserName or DN'
+	pass = password
+
+	; quotes are required to keep php from getting confused about
+        ; the extra equals sign
+	basedn = 'Base DN'
+</source>
+
+Your mapping of MediaWiki groups to the distinguished names (dn) of the groups on your directory server should be provided in the $LdapGroupsMap variable.  For example:
+
+<source lang="php">
+$LdapGroupsMap
+    = [ "AWSUsers" =>
+        [
+            "cn=aws-production,ou=security group,o=top"
+        ],
+        "NavAndGuidance" =>
+        [
+            'cn=g001,OU=Groups,o=top',
+            'cn=g002,OU=Groups,o=top',
+            'cn=g003,OU=Groups,o=top',
+        ]
+    ];
+</source>
+
+Since nested groups are not resolved, multiple DNs have to be specified as above.  Obviously, this is less than ideal.  I plan to add support for [http://ldapwiki.com/wiki/1.2.840.113556.1.4.1941 LDAP_MATCHING_RULE_IN_CHAIN] and allow you to use it by setting $LdapGroupsUseMatchingRuleInChainQueries to true.
+
+I also plan to have a Special Page to set up to allow for group mappings soon.
+
