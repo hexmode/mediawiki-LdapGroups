@@ -3,6 +3,7 @@
 namespace LdapGroups;
 
 use GlobalVarConfig;
+use ConfigFactory;
 use MWException;
 use User;
 
@@ -32,10 +33,23 @@ class LdapGroups {
 		$this->setupGroupMap();
 	}
 
+	static public function newFromIniFile( $iniFile = null ) {
+		if ( !is_readable( $iniFile ) ) {
+			throw new MWException( "Can't read '$iniFile'" );
+		}
+		$data = parse_ini_file( $iniFile );
+		if ( $data === false ) {
+			throw new MWException( "Error reading '$iniFile'" );
+		}
+
+		return new LdapGroups( $data );
+	}
+
 	protected function setupGroupMap() {
 		// FIXME: This should be in memcache so it can be dynamically updated
-		global $wgLDAPGroupMap;
-		$groupMap = $wgLDAPGroupMap;
+		$config
+			= ConfigFactory::getDefaultInstance()->makeConfig( 'LdapGroups' );
+		$groupMap = $config->get("Map");
 
 		global $wgGroupPermissions, $wgAddGroups, $wgRemoveGroups;
 
@@ -69,18 +83,6 @@ class LdapGroups {
 				}
 			}
 		}
-	}
-
-	static public function newFromIniFile( $iniFile = null ) {
-		if ( !is_readable( $iniFile ) ) {
-			throw new MWException( "Can't read $iniFile" );
-		}
-		$data = parse_ini_file( $iniFile );
-		if ( $data === false ) {
-			throw new MWException( "Error reading $iniFile" );
-		}
-
-		return new LdapGroups( $data );
 	}
 
 	protected function doLDAPSearch( $match ) {
@@ -167,11 +169,15 @@ class LdapGroups {
 		}
 	}
 
+	public static function makeConfig() {
+		return new GlobalVarConfig( 'LdapGroups' );
+	}
+
 	// This hook is probably not the right place.
 	static public function loadUser( $user, $email ) {
-		// FIXME use config
-		global $IP;
-		$here = self::newFromIniFile( "$IP/ldap.ini" );
+		$config
+			= ConfigFactory::getDefaultInstance()->makeConfig( 'LdapGroups' );
+		$here = self::newFromIniFile( $config->get("IniFile") );
 
 		$here->fetchLDAPData( $user, $email );
 
