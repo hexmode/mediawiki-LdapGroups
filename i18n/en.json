@@ -1,0 +1,7 @@
+{
+	"@metadata": {
+		"authors": [
+		]
+	},
+	"ldapgroups-desc": "Manage MediaWiki group membership in LDAP"
+}
