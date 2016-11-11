@@ -33,6 +33,10 @@ class LdapGroups {
 		$this->setupGroupMap();
 	}
 
+	static public function makeConfig() {
+		return new GlobalVarConfig( 'LdapGroups' );
+	}
+
 	static public function newFromIniFile( $iniFile = null ) {
 		if ( !is_readable( $iniFile ) ) {
 			throw new MWException( "Can't read '$iniFile'" );
@@ -45,28 +49,17 @@ class LdapGroups {
 		return new LdapGroups( $data );
 	}
 
-	protected function setupGroupMap() {
-		// FIXME: This should be in memcache so it can be dynamically updated
-		$config
-			= ConfigFactory::getDefaultInstance()->makeConfig( 'LdapGroups' );
-		$groupMap = $config->get("Map");
-
+	protected function setGroupRestrictions( $groupMap = [] ) {
 		global $wgGroupPermissions, $wgAddGroups, $wgRemoveGroups;
-
-		$groups = array_keys( $groupMap );
-		$nonLDAPGroups = array_diff( array_keys( $wgGroupPermissions ),
-									 $groups );
-
 		foreach( $groupMap as $name => $DNs ) {
 			if ( !isset( $wgGroupPermissions[$name] ) ) {
 				$wgGroupPermissions[$name] = $wgGroupPermissions['user'];
 			}
-			foreach ($DNs as $key) {
-				$lowLDAP = strtolower( $key );
-				$this->mwGroupMap[ $name ][] = $lowLDAP;
-				$this->ldapGroupMap[ $lowLDAP ] = $name;
-			}
 		}
+
+		$groups = array_keys( $groupMap );
+		$nonLDAPGroups = array_diff( array_keys( $wgGroupPermissions ),
+									 $groups );
 
 		// Restrict the ability of users to change these rights
 		foreach (
@@ -85,12 +78,40 @@ class LdapGroups {
 		}
 	}
 
-	protected function doLDAPSearch( $match ) {
-		$basedn = $this->param['basedn'];
+	protected function setupGroupMapUsingChain( $userDN ) {
+		list($cn, $rest) = explode( ",", $userDN );
 
+		foreach( $this->ldapGroupMap as $groupDN => $group ) {
+			$entry = $this->doLDAPSearch(
+				"(&(objectClass=user)($cn)" .
+				"(memberOf:1.2.840.113556.1.4.1941:=$groupDN))" );
+			if( $entry[ 'count' ] === 1 ) {
+				$this->ldapData['memberof'][] = $groupDN;
+			}
+		}
+	}
+
+	protected function setupGroupMap() {
+		global $wgGroupPermissions;
+		$config
+			= ConfigFactory::getDefaultInstance()->makeConfig( 'LdapGroups' );
+		$groupMap = $config->get("Map");
+
+		foreach( $groupMap as $name => $DNs ) {
+			foreach ($DNs as $key) {
+				$lowLDAP = strtolower( $key );
+				$this->mwGroupMap[ $name ][] = $lowLDAP;
+				$this->ldapGroupMap[ $lowLDAP ] = $name;
+			}
+		}
+		$this->setGroupRestrictions( $groupMap );
+	}
+
+	protected function doLDAPSearch( $match ) {
 		wfProfileIn( __METHOD__ . " - LDAP Search" );
 		$runTime = -microtime( true );
-		$res = ldap_search( $this->ldap, $basedn, $match, [ "*" ] );
+		$res = ldap_search( $this->ldap, $this->param['basedn'],
+							$match, [ "*" ] );
 		if ( !$res ) {
 			wfProfileOut( __METHOD__ );
 			throw new MWException( "Error in LDAP search: " .
@@ -127,6 +148,11 @@ class LdapGroups {
 		}
 
 		$this->ldapData = $entry[0];
+		$config
+			= ConfigFactory::getDefaultInstance()->makeConfig( 'LdapGroups' );
+		if ( $config->get( "UseMatchingRuleInChainQuery" ) ) {
+			$this->setupGroupMapUsingChain( $this->ldapData['dn'] );
+		}
 
 		return $this->ldapData;
 	}
@@ -167,10 +193,6 @@ class LdapGroups {
 		foreach ( $addThese as $group ) {
 			$user->addGroup( $group );
 		}
-	}
-
-	public static function makeConfig() {
-		return new GlobalVarConfig( 'LdapGroups' );
 	}
 
 	// This hook is probably not the right place.
