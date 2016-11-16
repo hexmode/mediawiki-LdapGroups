@@ -34,7 +34,7 @@
 		"Map": {
 			"NixUsers": [ "cn=nixusers,ou=Groups,o=top" ]
 		},
-		"UseMatchingRuleInChainQueries": false
+		"UseMatchingRuleInChainQuery": false
 	},
 	"manifest_version": 1
 }

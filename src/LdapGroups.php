@@ -33,6 +33,10 @@ class LdapGroups {
 		$this->setupGroupMap();
 	}
 
+	static public function makeConfig() {
+		return new GlobalVarConfig( 'LdapGroups' );
+	}
+
 	static public function newFromIniFile( $iniFile = null ) {
 		if ( !is_readable( $iniFile ) ) {
 			throw new MWException( "Can't read '$iniFile'" );
@@ -45,28 +49,17 @@ class LdapGroups {
 		return new LdapGroups( $data );
 	}
 
-	protected function setupGroupMap() {
-		// FIXME: This should be in memcache so it can be dynamically updated
-		$config
-			= ConfigFactory::getDefaultInstance()->makeConfig( 'LdapGroups' );
-		$groupMap = $config->get("Map");
-
+	protected function setGroupRestrictions( $groupMap = [] ) {
 		global $wgGroupPermissions, $wgAddGroups, $wgRemoveGroups;
-
-		$groups = array_keys( $groupMap );
-		$nonLDAPGroups = array_diff( array_keys( $wgGroupPermissions ),
-									 $groups );
-
 		foreach( $groupMap as $name => $DNs ) {
 			if ( !isset( $wgGroupPermissions[$name] ) ) {
 				$wgGroupPermissions[$name] = $wgGroupPermissions['user'];
 			}
-			foreach ($DNs as $key) {
-				$lowLDAP = strtolower( $key );
-				$this->mwGroupMap[ $name ][] = $lowLDAP;
-				$this->ldapGroupMap[ $lowLDAP ] = $name;
-			}
 		}
+
+		$groups = array_keys( $groupMap );
+		$nonLDAPGroups = array_diff( array_keys( $wgGroupPermissions ),
+									 $groups );
 
 		// Restrict the ability of users to change these rights
 		foreach (
@@ -85,12 +78,39 @@ class LdapGroups {
 		}
 	}
 
-	protected function doLDAPSearch( $match ) {
-		$basedn = $this->param['basedn'];
+	protected function doGroupMapUsingChain( $userDN ) {
+		list($cn, $rest) = explode( ",", $userDN );
 
+		foreach( $this->ldapGroupMap as $groupDN => $group ) {
+			$entry = $this->doLDAPSearch(
+				"(&(objectClass=user)($cn)" .
+				"(memberOf:1.2.840.113556.1.4.1941:=$groupDN))" );
+			if( $entry[ 'count' ] === 1 ) {
+				$this->ldapData['memberof'][] = $groupDN;
+			}
+		}
+	}
+
+	protected function setupGroupMap() {
+		$config
+			= ConfigFactory::getDefaultInstance()->makeConfig( 'LdapGroups' );
+		$groupMap = $config->get("Map");
+
+		foreach( $groupMap as $name => $DNs ) {
+			foreach ($DNs as $key) {
+				$lowLDAP = strtolower( $key );
+				$this->mwGroupMap[ $name ][] = $lowLDAP;
+				$this->ldapGroupMap[ $lowLDAP ] = $name;
+			}
+		}
+		$this->setGroupRestrictions( $groupMap );
+	}
+
+	protected function doLDAPSearch( $match ) {
 		wfProfileIn( __METHOD__ . " - LDAP Search" );
 		$runTime = -microtime( true );
-		$res = ldap_search( $this->ldap, $basedn, $match, [ "*" ] );
+		$res = ldap_search( $this->ldap, $this->param['basedn'],
+							$match, [ "*" ] );
 		if ( !$res ) {
 			wfProfileOut( __METHOD__ );
 			throw new MWException( "Error in LDAP search: " .
@@ -100,7 +120,7 @@ class LdapGroups {
 		$entry = ldap_get_entries( $this->ldap, $res );
 		$runTime += microtime( true );
 		wfProfileOut( __METHOD__ . " - LDAP Search" );
-		wfDebugLog( __CLASS__, "Ran LDAP search in $runTime seconds.\n" );
+		wfDebugLog( __CLASS__, "Ran LDAP search for '$match' in $runTime seconds.\n" );
 		return $entry;
 	}
 
@@ -127,6 +147,11 @@ class LdapGroups {
 		}
 
 		$this->ldapData = $entry[0];
+		$config
+			= ConfigFactory::getDefaultInstance()->makeConfig( 'LdapGroups' );
+		if ( $config->get( "UseMatchingRuleInChainQuery" ) ) {
+			$this->doGroupMapUsingChain( $this->ldapData['dn'] );
+		}
 
 		return $this->ldapData;
 	}
@@ -135,11 +160,13 @@ class LdapGroups {
 		# Create a list of LDAP groups this person is a member of
 		$memberOf = [];
 		if ( isset( $this->ldapData['memberof'] ) ) {
+			wfDebugLog( __METHOD__, "memberof: " .var_export( $this->ldapData['memberof'], true ) );
 			$tmp = array_map( 'strtolower',$this->ldapData['memberof'] );
 			unset( $tmp['count'] );
 			$memberOf = array_flip( $tmp );
 		}
 
+		wfDebugLog( "In Groups: ", implode( ", ", $user->getGroups() ) );
 		# This is a list of LDAP groups that map to MW groups we already have
 		$hasControlledGroups = array_intersect( $this->ldapGroupMap,
 												$user->getGroups() );
@@ -160,17 +187,17 @@ class LdapGroups {
 			$matched = array_intersect( $this->mwGroupMap[$checkGroup],
 										array_flip( $memberOf ) );
 			if( count( $matched ) === 0 ) {
+				wfDebugLog( __METHOD__, "removing: $checkGroup" );
 				$user->removeGroup( $checkGroup );
 			}
 		}
 
 		foreach ( $addThese as $group ) {
 			$user->addGroup( $group );
+			wfDebugLog( __METHOD__, "Adding: $group" );
 		}
-	}
-
-	public static function makeConfig() {
-		return new GlobalVarConfig( 'LdapGroups' );
+		// saving now causes problems.
+		#$user->saveSettings();
 	}
 
 	// This hook is probably not the right place.
