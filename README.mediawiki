@@ -1,19 +1,45 @@
-== LdapGroups ==
+= LdapGroups =
 
 This is MediaWiki extension to allow users to manage their MediaWiki groups using a directory server via LDAP such as Microsoft's ActiveDirectory.
 
-You need to specify a file in [https://en.wikipedia.org/wiki/INI_file#Format ini format] with the authenticaton credentials to use to connect to the directory server with.
+== Installation ==
 
+* Download and place the files in a directory called LdapGroups in your extensions/ folder.
+
+* Add the following code at the bottom of your LocalSettings.php:
+
+<source lang="php">
+wfLoadExtension( 'LdapGroups' );
+</source>
+
+* Configure as required
+
+* Done - Navigate to Special:Version on your wiki to verify that the extension is successfully installed.
+
+== Configuration ==
+
+=== ini file ===
+
+You need to specify connection parameters for your LDAP server.  Since you may want to use a different LDAP server for different environments (e.g. dev, prod), the credentials are stored in a separate file in [https://en.wikipedia.org/wiki/INI_file#Format ini file format].  These will be used to connect to the directory server.  Specify the ini file in by pointing to it in your LocalSettings.php file by setting:
+<source lang="php">
+$LdapGroupsIniFile = "full-path-to-file";
+</source>
+
+The file takes the following format:
 <source lang="ini">
 [main]
-	server = ServerNAme
-	user = 'UserName or DN'
-	pass = password
+	server = ServerName
 
 	; quotes are required to keep php from getting confused about
-        ; the extra equals sign
+	; the extra equals sign
+	user = 'UserName or DN
+
+	pass = password
+
 	basedn = 'Base DN'
 </source>
+
+=== Group mapping ===
 
 Your mapping of MediaWiki groups to the distinguished names (dn) of the groups on your directory server should be provided in the $LdapGroupsMap variable.  For example:
 
@@ -32,7 +58,14 @@ $LdapGroupsMap
     ];
 </source>
 
-Since nested groups are not resolved, multiple DNs have to be specified as above.  Obviously, this is less than ideal.  I plan to add support for [http://ldapwiki.com/wiki/1.2.840.113556.1.4.1941 LDAP_MATCHING_RULE_IN_CHAIN] and allow you to use it by setting $LdapGroupsUseMatchingRuleInChainQueries to true.
+=== Nested groups ===
+
+[https://msdn.microsoft.com/en-us/library/cc246068.aspx Nested groups] are correctly resolved using [http://ldapwiki.com/wiki/1.2.840.113556.1.4.1941 LDAP_MATCHING_RULE_IN_CHAIN] queries if you add the following to your LocalSettings.php:
+<source lang="php">
+$LdapGroupsUseMatchingRuleInChainQuery = true;
+</source>
+
+== TODO ==
 
 I also plan to have a Special Page to set up to allow for group mappings soon.
 
