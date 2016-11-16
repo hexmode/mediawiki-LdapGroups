@@ -121,7 +121,7 @@ class LdapGroups {
 		$entry = ldap_get_entries( $this->ldap, $res );
 		$runTime += microtime( true );
 		wfProfileOut( __METHOD__ . " - LDAP Search" );
-		wfDebugLog( __CLASS__, "Ran LDAP search in $runTime seconds.\n" );
+		wfDebugLog( __CLASS__, "Ran LDAP search for '$match' in $runTime seconds.\n" );
 		return $entry;
 	}
 
@@ -161,11 +161,13 @@ class LdapGroups {
 		# Create a list of LDAP groups this person is a member of
 		$memberOf = [];
 		if ( isset( $this->ldapData['memberof'] ) ) {
+			wfDebugLog( __METHOD__, "memberof: " .var_export( $this->ldapData['memberof'], true ) );
 			$tmp = array_map( 'strtolower',$this->ldapData['memberof'] );
 			unset( $tmp['count'] );
 			$memberOf = array_flip( $tmp );
 		}
 
+		wfDebugLog( "In Groups: ", implode( ", ", $user->getGroups() ) );
 		# This is a list of LDAP groups that map to MW groups we already have
 		$hasControlledGroups = array_intersect( $this->ldapGroupMap,
 												$user->getGroups() );
@@ -186,13 +188,17 @@ class LdapGroups {
 			$matched = array_intersect( $this->mwGroupMap[$checkGroup],
 										array_flip( $memberOf ) );
 			if( count( $matched ) === 0 ) {
+				wfDebugLog( __METHOD__, "removing: $checkGroup" );
 				$user->removeGroup( $checkGroup );
 			}
 		}
 
 		foreach ( $addThese as $group ) {
 			$user->addGroup( $group );
+			wfDebugLog( __METHOD__, "Adding: $group" );
 		}
+		// saving now causes problems.
+		#$user->saveSettings();
 	}
 
 	// This hook is probably not the right place.
