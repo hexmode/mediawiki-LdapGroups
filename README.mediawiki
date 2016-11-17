@@ -6,7 +6,7 @@ This is MediaWiki extension to allow users to manage their MediaWiki groups usin
 
 * Download and place the files in a directory called LdapGroups in your extensions/ folder.
 
-* Add the following code at the bottom of your LocalSettings.php:
+* Add the following code at the bottom of your <tt>LocalSettings.php</tt>:
 
 <source lang="php">
 wfLoadExtension( 'LdapGroups' );
@@ -20,7 +20,7 @@ wfLoadExtension( 'LdapGroups' );
 
 === ini file ===
 
-You need to specify connection parameters for your LDAP server.  Since you may want to use a different LDAP server for different environments (e.g. dev, prod), the credentials are stored in a separate file in [https://en.wikipedia.org/wiki/INI_file#Format ini file format].  These will be used to connect to the directory server.  Specify the ini file in by pointing to it in your LocalSettings.php file by setting:
+You need to specify connection parameters for your LDAP server.  Since you may want to use a different LDAP server for different environments (e.g. dev, prod), the credentials are stored in a separate file in [https://en.wikipedia.org/wiki/INI_file#Format ini file format].  These will be used to connect to the directory server.  Specify the ini file in your <tt>LocalSettings.php</tt> file by setting:
 <source lang="php">
 $LdapGroupsIniFile = "full-path-to-file";
 </source>
@@ -32,7 +32,7 @@ The file takes the following format:
 
 	; quotes are required to keep php from getting confused about
 	; the extra equals sign
-	user = 'UserName or DN
+	user = 'UserName or DN'
 
 	pass = password
 
@@ -60,7 +60,7 @@ $LdapGroupsMap
 
 === Nested groups ===
 
-[https://msdn.microsoft.com/en-us/library/cc246068.aspx Nested groups] are correctly resolved using [http://ldapwiki.com/wiki/1.2.840.113556.1.4.1941 LDAP_MATCHING_RULE_IN_CHAIN] queries if you add the following to your LocalSettings.php:
+[https://msdn.microsoft.com/en-us/library/cc246068.aspx Nested groups] are correctly resolved using [http://ldapwiki.com/wiki/1.2.840.113556.1.4.1941 LDAP_MATCHING_RULE_IN_CHAIN] queries if you add the following to your <tt>LocalSettings.php</tt>:
 <source lang="php">
 $LdapGroupsUseMatchingRuleInChainQuery = true;
 </source>
