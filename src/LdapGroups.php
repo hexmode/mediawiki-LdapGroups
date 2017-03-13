@@ -1,5 +1,8 @@
 <?php
-/*
+
+/**
+ * Extension for syncing MediaWiki groups with a directory server's groups.
+ *
  * Copyright (C) 2017  Mark A. Hershberger
  *
  * This program is free software: you can redistribute it and/or modify
