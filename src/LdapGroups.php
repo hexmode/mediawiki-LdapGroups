@@ -157,10 +157,13 @@ class LdapGroups {
 
 	public function fetchLDAPData( User $user ) {
 		$email = $user->getEmail();
-
-		if( !$email ) {
-			// Fail early
-			throw new MWException( "No email found for $user" );
+		if ( !$email ) {
+			\Hooks::run( 'PluggableSSOEmail', [ &$email ] );
+			if( !$email ) {
+				// Fail early
+				throw new MWException( "No email found for $user" );
+			}
+			$user->setEmail( $email );
 		}
 		wfDebug( __METHOD__ . ": Fetching user data for $user from LDAP\n" );
 		$entry = $this->doLDAPSearch( $this->param['searchattr'] .
