@@ -108,7 +108,7 @@ class LdapGroups {
 		$this->setGroupRestrictions( $groupMap );
 	}
 
-    protected function setupConnection() {
+	protected function setupConnection() {
 		$this->ldap = ldap_connect( $this->param['server'] );
 		if ( !$this->ldap ) {
 			throw new MWException( "Error Connecting to LDAP server!" );
@@ -121,37 +121,37 @@ class LdapGroups {
 			throw new MWException( "Couldn't bind to LDAP server: " .
 								   ldap_error( $this->ldap ) );
 		}
-    }
+	}
 
 	protected function doLDAPSearch( $match ) {
 		wfProfileIn( __METHOD__ );
 		$runTime = -microtime( true );
-        $key = wfMemcKey( 'ldapgroups', $match );
-        $cache = wfGetMainCache();
-        $entry = $cache->get( $key );
-        if ( $entry === false ) {
-            wfProfileIn( __METHOD__ . " - LDAP Search" );
-            if ( !$this->ldap ) {
-                $this->setupConnection();
-            }
+		$key = wfMemcKey( 'ldapgroups', $match );
+		$cache = wfGetMainCache();
+		$entry = $cache->get( $key );
+		if ( $entry === false ) {
+			wfProfileIn( __METHOD__ . " - LDAP Search" );
+			if ( !$this->ldap ) {
+				$this->setupConnection();
+			}
 
-            $res = ldap_search( $this->ldap, $this->param['basedn'],
-                                $match, [ "*" ] );
-            if ( !$res ) {
-                wfProfileOut( __METHOD__ . " - LDAP Search" );
-                wfProfileOut( __METHOD__ );
-                throw new MWException( "Error in LDAP search: " .
-                                       ldap_error( $this->ldap ) );
-            }
+			$res = ldap_search( $this->ldap, $this->param['basedn'],
+								$match, [ "*" ] );
+			if ( !$res ) {
+				wfProfileOut( __METHOD__ . " - LDAP Search" );
+				wfProfileOut( __METHOD__ );
+				throw new MWException( "Error in LDAP search: " .
+									   ldap_error( $this->ldap ) );
+			}
 
-            $entry = ldap_get_entries( $this->ldap, $res );
-            $cache->set( $key, $entry, 3600 * 24 );
+			$entry = ldap_get_entries( $this->ldap, $res );
+			$cache->set( $key, $entry, 3600 * 24 );
 
-            wfProfileOut( __METHOD__ . " - LDAP Search" );
-        }
-        wfProfileOut( __METHOD__ );
-        $runTime += microtime( true );
-        wfDebugLog( __CLASS__, "Ran LDAP search for '$match' in $runTime seconds.\n" );
+			wfProfileOut( __METHOD__ . " - LDAP Search" );
+		}
+		wfProfileOut( __METHOD__ );
+		$runTime += microtime( true );
+		wfDebugLog( __CLASS__, "Ran LDAP search for '$match' in $runTime seconds.\n" );
 		return $entry;
 	}
 
