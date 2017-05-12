@@ -1,0 +1,8 @@
+{
+	"@metadata": {
+		"authors": [
+			"Matrafox"
+		]
+	},
+	"ldapgroups-desc": "Administrați apartenența la grupurile LDAP din MediaWiki"
+}

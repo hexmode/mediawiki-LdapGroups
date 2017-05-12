@@ -1,0 +1,8 @@
+{
+	"@metadata": {
+		"authors": [
+			"Thibaut120094"
+		]
+	},
+	"ldapgroups-desc": "Gérer l'appartenance au groupe MediaWiki dans LDAP"
+}
