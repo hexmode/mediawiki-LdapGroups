@@ -1,0 +1,8 @@
+{
+	"@metadata": {
+		"authors": [
+			"Robby"
+		]
+	},
+	"ldapgroups-desc": "Geréiert MediaWiki Gruppen an hir Memberen an engem LDAP"
+}
