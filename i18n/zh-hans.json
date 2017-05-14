@@ -1,0 +1,8 @@
+{
+	"@metadata": {
+		"authors": [
+			"Liuxinyu970226"
+		]
+	},
+	"ldapgroups-desc": "在LDAP中管理MediaWiki用户组成员"
+}
