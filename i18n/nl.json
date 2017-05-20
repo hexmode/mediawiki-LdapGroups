@@ -1,8 +1,9 @@
 {
 	"@metadata": {
 		"authors": [
-			"Mainframe98"
+			"Mainframe98",
+			"Sjoerddebruin"
 		]
 	},
-	"ldapgroups-desc": "Beheer MediaWiki groepslidmaatschap in LDAP"
+	"ldapgroups-desc": "Beheer MediaWiki-groepslidmaatschap in LDAP"
 }
