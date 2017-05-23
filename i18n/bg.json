@@ -1,0 +1,8 @@
+{
+	"@metadata": {
+		"authors": [
+			"StanProg"
+		]
+	},
+	"ldapgroups-desc": "Управление на груповото членство на MediaWiki в LDAP"
+}
