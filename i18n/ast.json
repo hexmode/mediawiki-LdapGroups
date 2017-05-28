@@ -1,0 +1,8 @@
+{
+	"@metadata": {
+		"authors": [
+			"Xuacu"
+		]
+	},
+	"ldapgroups-desc": "Xestionar los miembros del grupu de MediaWiki en LDAP"
+}
