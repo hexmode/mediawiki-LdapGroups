@@ -1,0 +1,8 @@
+{
+	"@metadata": {
+		"authors": [
+			"Macofe"
+		]
+	},
+	"ldapgroups-desc": "Gestionar la membresía de grupos de MediaWiki en LDAP"
+}
