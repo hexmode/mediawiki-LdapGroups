@@ -151,7 +151,9 @@ class LdapGroups {
 		}
 		wfProfileOut( __METHOD__ );
 		$runTime += microtime( true );
-		wfDebugLog( __CLASS__, "Ran LDAP search for '$match' in $runTime seconds.\n" );
+		wfDebugLog(
+			__CLASS__, "Ran LDAP search for '$match' in $runTime seconds.\n"
+		);
 		return $entry;
 	}
 
@@ -191,7 +193,10 @@ class LdapGroups {
 		# Create a list of LDAP groups this person is a member of
 		$memberOf = [];
 		if ( isset( $this->ldapData['memberof'] ) ) {
-			wfDebugLog( __METHOD__, "memberof: " .var_export( $this->ldapData['memberof'], true ) );
+			wfDebugLog(
+				__METHOD__, "memberof: " .
+				var_export( $this->ldapData['memberof'], true )
+			);
 			$tmp = array_map( 'strtolower',$this->ldapData['memberof'] );
 			unset( $tmp['count'] );
 			$memberOf = array_flip( $tmp );
