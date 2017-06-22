@@ -28,6 +28,7 @@ class LdapGroups {
 	protected $param;
 	protected $ldapGroupMap;
 	protected $mwGroupMap;
+	static private $lg;
 
 	public function __construct( $param ) {
 		wfDebug( __METHOD__ );
@@ -40,6 +41,16 @@ class LdapGroups {
 	}
 
 	static public function newFromIniFile( $iniFile = null ) {
+		if ( self::$lg ) {
+			return self::$lg;
+		}
+
+		$config
+			= ConfigFactory::getDefaultInstance()->makeConfig( 'LdapGroups' );
+		if ( $iniFile === null ) {
+			$iniFile = $config->get("IniFile");
+		}
+
 		if ( !is_readable( $iniFile ) ) {
 			throw new MWException( "Can't read '$iniFile'" );
 		}
@@ -49,6 +60,10 @@ class LdapGroups {
 		}
 
 		return new LdapGroups( $data );
+	}
+
+	static public function init() {
+		self::newFromIniFile();
 	}
 
 	protected function setGroupRestrictions( $groupMap = [] ) {
@@ -94,18 +109,25 @@ class LdapGroups {
 	}
 
 	protected function setupGroupMap() {
-		$config
-			= ConfigFactory::getDefaultInstance()->makeConfig( 'LdapGroups' );
-		$groupMap = $config->get("Map");
+		$cache = wfGetMainCache();
+		$key = wfMemcKey( __CLASS__, 'groupMap' );
+		$groupMap = $cache->get( $key );
+		if ( !$groupMap ) {
+			$config
+				= ConfigFactory::getDefaultInstance()->makeConfig( 'LdapGroups' );
+			$groupMap = $config->get("Map");
 
-		foreach( $groupMap as $name => $DNs ) {
-			foreach ($DNs as $key) {
-				$lowLDAP = strtolower( $key );
-				$this->mwGroupMap[ $name ][] = $lowLDAP;
-				$this->ldapGroupMap[ $lowLDAP ] = $name;
+			foreach( $groupMap as $name => $DNs ) {
+				foreach ($DNs as $key) {
+					$lowLDAP = strtolower( $key );
+					$this->mwGroupMap[ $name ][] = $lowLDAP;
+					$this->ldapGroupMap[ $lowLDAP ] = $name;
+				}
 			}
+			$this->setGroupRestrictions( $groupMap );
+			$cache->set( $key, $groupMap );
 		}
-		$this->setGroupRestrictions( $groupMap );
+		return $groupMap;
 	}
 
 	protected function setupConnection() {
@@ -238,9 +260,7 @@ class LdapGroups {
 
 	// This hook is probably not the right place.
 	static public function loadUser( $user, $email ) {
-		$config
-			= ConfigFactory::getDefaultInstance()->makeConfig( 'LdapGroups' );
-		$here = self::newFromIniFile( $config->get("IniFile") );
+		$here = self::newFromIniFile();
 
 		$here->fetchLDAPData( $user, $email );
 
