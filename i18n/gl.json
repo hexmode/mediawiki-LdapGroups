@@ -1,0 +1,8 @@
+{
+	"@metadata": {
+		"authors": [
+			"Elisardojm"
+		]
+	},
+	"ldapgroups-desc": "Xestionar a pertenza a grupos de MediaWiki en LDAP"
+}
