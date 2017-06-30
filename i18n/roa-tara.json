@@ -1,0 +1,8 @@
+{
+	"@metadata": {
+		"authors": [
+			"Joetaras"
+		]
+	},
+	"ldapgroups-desc": "Gestisce le gruppe de membre de MediaUicchi cu LDAP"
+}
