@@ -30,6 +30,9 @@
 	"ConfigRegistry": {
 		"LdapGroups": "LdapGroups\\LdapGroups::makeConfig"
 	},
+	"Hooks": {
+		"PluggableAuthPopulateGroups": [ "LdapGroups::populateGroups" ]
+	},
 	"config": {
 		"_prefix": "LdapGroups",
 		"IniFile": "",
