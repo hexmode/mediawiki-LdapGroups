@@ -235,12 +235,12 @@ class LdapGroups {
 	}
 
 	// This hook is probably not the right place.
-	static public function loadUser( $user, $email ) {
+	static public function populateGroups( $user ) {
 		$config
 			= ConfigFactory::getDefaultInstance()->makeConfig( 'LdapGroups' );
 		$here = self::newFromIniFile( $config->get("IniFile") );
 
-		$here->fetchLDAPData( $user, $email );
+		$here->fetchLDAPData( $user );
 
 		// Make sure user is in the right groups;
 		$here->mapGroups( $user );
