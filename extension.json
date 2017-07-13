@@ -5,8 +5,10 @@
 	"author": [
 		"[http://mwstake.org Mark A. Hershberger]"
 	],
-    "callback": "LdapGroups\\LdapGroups::init",
-	"require": [ "1.26" ],
+	"callback": "LdapGroups\\LdapGroups::init",
+	"requires": {
+		"MediaWiki": ">=1.26"
+	},
 	"url": "https://www.mediawiki.org/wiki/Extension:LdapGroups",
 	"descriptionmsg": "ldapgroups-desc",
 	"type": "specialpage",
@@ -28,6 +30,9 @@
 	],
 	"ConfigRegistry": {
 		"LdapGroups": "LdapGroups\\LdapGroups::makeConfig"
+	},
+	"Hooks": {
+		"PluggableAuthPopulateGroups": [ "LdapGroups::populateGroups" ]
 	},
 	"config": {
 		"_prefix": "LdapGroups",

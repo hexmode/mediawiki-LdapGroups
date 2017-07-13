@@ -1,0 +1,8 @@
+{
+	"@metadata": {
+		"authors": [
+			"Metalhead64"
+		]
+	},
+	"ldapgroups-desc": "Verwaltet die MediaWiki-Gruppenmitgliedschaft in LDAP"
+}
