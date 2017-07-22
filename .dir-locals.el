@@ -8,7 +8,7 @@
 		 (lice:default-license . "gpl-3.0")
 		 (eval . (progn (when (fboundp 'delete-trailing-whitespace)
 						  (delete-trailing-whitespace))
-						  (tabify (point-min) (point-max))))
+						(tabify (point-min) (point-max))))
 		 (c-hanging-braces-alist
 		  (defun-open after)
 		  (block-open after)

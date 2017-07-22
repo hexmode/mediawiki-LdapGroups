@@ -32,17 +32,31 @@ class LdapGroups {
 	protected $ldapGroupMap;
 	protected $mwGroupMap;
 
+	/**
+	 * Constructor for LdapGroups
+	 * @param string $param extension
+	 */
 	public function __construct( $param ) {
 		wfDebug( __METHOD__ );
 		$this->param = $param;
 		$this->setupGroupMap();
 	}
 
-	static public function makeConfig() {
+	/**
+	 * Get the config accessor
+	 * @return GlobalVarConfig
+	 */
+	public static function makeConfig() {
 		return new GlobalVarConfig( 'LdapGroups' );
 	}
 
-	static public function newFromIniFile( $iniFile = null ) {
+	/**
+	 * The ini constructor
+	 * @param mixed $iniFile to read from for old style mapping.
+	 * @return LdapGroups
+	 * @throws MWException
+	 */
+	public static function newFromIniFile( $iniFile = null ) {
 		if ( !is_readable( $iniFile ) ) {
 			throw new MWException( "Can't read '$iniFile'" );
 		}
@@ -54,9 +68,13 @@ class LdapGroups {
 		return new LdapGroups( $data );
 	}
 
-	protected function setGroupRestrictions( $groupMap = [] ) {
+	/**
+	 * Restrict what can be done with these groups on Special:UserRights
+	 * @param array $groupMap The map
+	 */
+	protected function setGroupRestrictions( array $groupMap ) {
 		global $wgGroupPermissions, $wgAddGroups, $wgRemoveGroups;
-		foreach( $groupMap as $name => $DNs ) {
+		foreach ( $groupMap as $name => $DNs ) {
 			if ( !isset( $wgGroupPermissions[$name] ) ) {
 				$wgGroupPermissions[$name] = $wgGroupPermissions['user'];
 			}
@@ -68,8 +86,8 @@ class LdapGroups {
 
 		// Restrict the ability of users to change these rights
 		foreach (
-			array_unique( array_keys( $wgGroupPermissions ) ) as $group )
-		{
+			array_unique( array_keys( $wgGroupPermissions ) ) as $group
+		) {
 			if ( isset( $wgGroupPermissions[$group]['userrights'] ) &&
 				 $wgGroupPermissions[$group]['userrights'] ) {
 				$wgGroupPermissions[$group]['userrights'] = false;
@@ -83,26 +101,34 @@ class LdapGroups {
 		}
 	}
 
+	/**
+	 * Set up a group map for the user using chained groups.
+	 * See http://ldapwiki.com/wiki/1.2.840.113556.1.4.1941
+	 * @param string $userDN the DN for the user
+	 */
 	protected function doGroupMapUsingChain( $userDN ) {
-		list($cn, $rest) = explode( ",", $userDN );
+		list( $cn, $rest ) = explode( ",", $userDN );
 
-		foreach( $this->ldapGroupMap as $groupDN => $group ) {
+		foreach ( $this->ldapGroupMap as $groupDN => $group ) {
 			$entry = $this->doLDAPSearch(
 				"(&(objectClass=user)($cn)" .
 				"(memberOf:1.2.840.113556.1.4.1941:=$groupDN))" );
-			if( $entry[ 'count' ] === 1 ) {
+			if ( $entry[ 'count' ] === 1 ) {
 				$this->ldapData['memberof'][] = $groupDN;
 			}
 		}
 	}
 
+	/**
+	 * Global Maps
+	 */
 	protected function setupGroupMap() {
 		$config
 			= ConfigFactory::getDefaultInstance()->makeConfig( 'LdapGroups' );
-		$groupMap = $config->get("Map");
+		$groupMap = $config->get( "Map" );
 
-		foreach( $groupMap as $name => $DNs ) {
-			foreach ($DNs as $key) {
+		foreach ( $groupMap as $name => $DNs ) {
+			foreach ( $DNs as $key ) {
 				$lowLDAP = strtolower( $key );
 				$this->mwGroupMap[ $name ][] = $lowLDAP;
 				$this->ldapGroupMap[ $lowLDAP ] = $name;
@@ -111,6 +137,10 @@ class LdapGroups {
 		$this->setGroupRestrictions( $groupMap );
 	}
 
+	/**
+	 * Set up the connection
+	 * @throw MWException
+	 */
 	protected function setupConnection() {
 		$this->ldap = ldap_connect( $this->param['server'] );
 		if ( !$this->ldap ) {
@@ -126,6 +156,12 @@ class LdapGroups {
 		}
 	}
 
+	/**
+	 * Do a search
+	 * @param string $match ldap match
+	 * @return array array with results
+	 * @throw MWException
+	 */
 	protected function doLDAPSearch( $match ) {
 		wfProfileIn( __METHOD__ );
 		$runTime = -microtime( true );
@@ -154,13 +190,20 @@ class LdapGroups {
 		}
 		wfProfileOut( __METHOD__ );
 		$runTime += microtime( true );
-		wfDebugLog( __CLASS__, "Ran LDAP search for '$match' in $runTime seconds.\n" );
+		wfDebugLog(
+			__CLASS__, "Ran LDAP search for '$match' in $runTime seconds.\n"
+		);
 		return $entry;
 	}
-
+	/**
+	 * Get the LDAP data for the user
+	 * @param User $user the user
+	 * @return array data for this user
+	 * @throw MWException
+	 */
 	public function fetchLDAPData( User $user ) {
 		$email = $user->getEmail();
-		if( !$email ) {
+		if ( !$email ) {
 			// Fail early
 			throw new MWException( "No email found for $user" );
 		}
@@ -190,12 +233,19 @@ class LdapGroups {
 		return $this->ldapData;
 	}
 
+	/**
+	 * Map this user's MW groups based on its LDAP groups
+	 * @param User $user to map
+	 */
 	public function mapGroups( User $user ) {
 		# Create a list of LDAP groups this person is a member of
 		$memberOf = [];
 		if ( isset( $this->ldapData['memberof'] ) ) {
-			wfDebugLog( __METHOD__, "memberof: " .var_export( $this->ldapData['memberof'], true ) );
-			$tmp = array_map( 'strtolower',$this->ldapData['memberof'] );
+			wfDebugLog(
+				__METHOD__, "memberof: "
+				. var_export( $this->ldapData['memberof'], true )
+			);
+			$tmp = array_map( 'strtolower', $this->ldapData['memberof'] );
 			unset( $tmp['count'] );
 			$memberOf = array_flip( $tmp );
 		}
@@ -220,7 +270,7 @@ class LdapGroups {
 		foreach ( array_keys( $this->mwGroupMap ) as $checkGroup ) {
 			$matched = array_intersect( $this->mwGroupMap[$checkGroup],
 										array_flip( $memberOf ) );
-			if( count( $matched ) === 0 ) {
+			if ( count( $matched ) === 0 ) {
 				wfDebugLog( __METHOD__, "removing: $checkGroup" );
 				$user->removeGroup( $checkGroup );
 			}
@@ -230,19 +280,7 @@ class LdapGroups {
 			$user->addGroup( $group );
 			wfDebugLog( __METHOD__, "Adding: $group" );
 		}
-		// saving now causes problems.
-		#$user->saveSettings();
-	}
-
-	// This hook is probably not the right place.
-	static public function populateGroups( $user ) {
-		$config
-			= ConfigFactory::getDefaultInstance()->makeConfig( 'LdapGroups' );
-		$here = self::newFromIniFile( $config->get("IniFile") );
-
-		$here->fetchLDAPData( $user );
-
-		// Make sure user is in the right groups;
-		$here->mapGroups( $user );
+		// saving now causes problems. ** WHAT PROBLEMS? **
+		# $user->saveSettings();
 	}
 }

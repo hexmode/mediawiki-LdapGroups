@@ -17,7 +17,8 @@
 		]
 	},
 	"AutoloadClasses": {
-		"LdapGroups\\LdapGroups": "src/LdapGroups.php"
+		"LdapGroups\\LdapGroups": "src/LdapGroups.php",
+		"LdapGroups\\Hook": "src/Hook.php"
 	},
 	"GroupPermissions": {
 		"sysop": {
@@ -31,7 +32,7 @@
 		"LdapGroups": "LdapGroups\\LdapGroups::makeConfig"
 	},
 	"Hooks": {
-		"PluggableAuthPopulateGroups": [ "LdapGroups::populateGroups" ]
+		"PluggableAuthPopulateGroups": [ "LdapGroups\\Hook::populateGroups" ]
 	},
 	"config": {
 		"_prefix": "LdapGroups",
