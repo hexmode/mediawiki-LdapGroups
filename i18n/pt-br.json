@@ -1,0 +1,8 @@
+{
+	"@metadata": {
+		"authors": [
+			"Felipe L. Ewald"
+		]
+	},
+	"ldapgroups-desc": "Gerenciar os membros dos grupos do MediaWiki em LDAP"
+}
