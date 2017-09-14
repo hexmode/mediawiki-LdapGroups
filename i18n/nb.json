@@ -1,0 +1,8 @@
+{
+	"@metadata": {
+		"authors": [
+			"Jon Harald Søby"
+		]
+	},
+	"ldapgroups-desc": "Behandle MediaWiki-gruppemedlemskap i LDAP"
+}
