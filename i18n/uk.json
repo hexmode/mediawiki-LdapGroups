@@ -1,0 +1,8 @@
+{
+	"@metadata": {
+		"authors": [
+			"Piramidion"
+		]
+	},
+	"ldapgroups-desc": "Керувати членством у групах MediaWiki у LDAP"
+}
