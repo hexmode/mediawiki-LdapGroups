@@ -27,9 +27,7 @@ class Hook {
 	 * @param User $user to map
 	 */
 	public static function populateGroups( User $user ) {
-		$config
-			= ConfigFactory::getDefaultInstance()->makeConfig( 'LdapGroups' );
-		$here = self::newFromIniFile( $config->get( "IniFile" ) );
+		$here = self::newFromIniFile();
 
 		$here->fetchLDAPData( $user );
 

@@ -5,6 +5,7 @@
 	"author": [
 		"[http://mwstake.org Mark A. Hershberger]"
 	],
+	"callback": "LdapGroups\\LdapGroups::init",
 	"requires": {
 		"MediaWiki": ">=1.26"
 	},

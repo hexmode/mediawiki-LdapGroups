@@ -31,6 +31,7 @@ class LdapGroups {
 	protected $param;
 	protected $ldapGroupMap;
 	protected $mwGroupMap;
+	static private $lg;
 
 	/**
 	 * Constructor for LdapGroups
@@ -52,11 +53,22 @@ class LdapGroups {
 
 	/**
 	 * The ini constructor
-	 * @param mixed $iniFile to read from for old style mapping.
+	 * @param string $iniFile to read from for old style mapping.
 	 * @return LdapGroups
 	 * @throws MWException
 	 */
-	public static function newFromIniFile( $iniFile = null ) {
+	public static function newFromIniFile( $iniFile ) {
+		if ( self::$lg ) {
+			return self::$lg;
+		}
+
+		if ( !$iniFile ) {
+			$config
+				= ConfigFactory::getDefaultInstance()
+				->makeConfig( 'LdapGroups' );
+			$iniFile = $config->get( "IniFile" );
+		}
+
 		if ( !is_readable( $iniFile ) ) {
 			throw new MWException( "Can't read '$iniFile'" );
 		}
@@ -69,10 +81,20 @@ class LdapGroups {
 	}
 
 	/**
-	 * Restrict what can be done with these groups on Special:UserRights
+	 * Shortcut for self::neFromIniFile()
+	 * @return LdapGroups
+	 * @throws MWException
+	 */
+	public static function init() {
+		self::newFromIniFile();
+	}
+
+	/**
+	 * Restrict what can be done with these groups on
+	 * Special:UserRights
 	 * @param array $groupMap The map
 	 */
-	protected function setGroupRestrictions( array $groupMap ) {
+	protected function setGroupRestrictions( array $groupMap = [] ) {
 		global $wgGroupPermissions, $wgAddGroups, $wgRemoveGroups;
 		foreach ( $groupMap as $name => $DNs ) {
 			if ( !isset( $wgGroupPermissions[$name] ) ) {
@@ -104,9 +126,10 @@ class LdapGroups {
 	/**
 	 * Set up a group map for the user using chained groups.
 	 * See http://ldapwiki.com/wiki/1.2.840.113556.1.4.1941
+	 * @param User $user to map
 	 * @param string $userDN the DN for the user
 	 */
-	protected function doGroupMapUsingChain( $userDN ) {
+	protected function doGroupMapUsingChain( User $user, $userDN ) {
 		list( $cn, $rest ) = explode( ",", $userDN );
 
 		foreach ( $this->ldapGroupMap as $groupDN => $group ) {
@@ -114,13 +137,15 @@ class LdapGroups {
 				"(&(objectClass=user)($cn)" .
 				"(memberOf:1.2.840.113556.1.4.1941:=$groupDN))" );
 			if ( $entry[ 'count' ] === 1 ) {
-				$this->ldapData['memberof'][] = $groupDN;
+				$this->addMemberof( $user, $groupDN );
 			}
 		}
 	}
 
 	/**
 	 * Global Maps
+	 *
+	 * @return array of mapping
 	 */
 	protected function setupGroupMap() {
 		$config
@@ -135,6 +160,7 @@ class LdapGroups {
 			}
 		}
 		$this->setGroupRestrictions( $groupMap );
+		return $groupMap;
 	}
 
 	/**
@@ -195,42 +221,98 @@ class LdapGroups {
 		);
 		return $entry;
 	}
+
 	/**
 	 * Get the LDAP data for the user
 	 * @param User $user the user
 	 * @return array data for this user
 	 * @throw MWException
 	 */
-	public function fetchLDAPData( User $user ) {
-		$email = $user->getEmail();
-		if ( !$email ) {
-			// Fail early
-			throw new MWException( "No email found for $user" );
-		}
+	public function getLDAPData( User $user ) {
+		if ( !isset( $this->ldapData[ $user->getId() ] ) ) {
+			$email = $user->getEmail();
+			if ( !$email ) {
+				// Fail early
+				throw new MWException( "No email found for $user" );
+			}
 
-		wfDebug( __METHOD__ . ": Fetching user data for $user from LDAP\n" );
-		$entry = $this->doLDAPSearch( $this->param['searchattr'] .
-									"=" . $user->getEmail() );
+			wfDebug( __METHOD__ . ": Fetching user data for $user from LDAP\n" );
+			$entry = $this->doLDAPSearch( $this->param['searchattr'] .
+										  "=" . $user->getEmail() );
 
-		if ( $entry['count'] === 0 ) {
-			wfProfileOut( __METHOD__ );
-			throw new MWException( "No user found with the ID: " .
-								   $user->getEmail() );
-		}
-		if ( $entry['count'] !== 1 ) {
-			wfProfileOut( __METHOD__ );
-			throw new MWException( "More than one user found " .
-								   "with the ID: $user" );
-		}
+			if ( $entry['count'] === 0 ) {
+				wfProfileOut( __METHOD__ );
+				throw new MWException( "No user found with the ID: " .
+									   $user->getEmail() );
+			}
+			if ( $entry['count'] !== 1 ) {
+				wfProfileOut( __METHOD__ );
+				throw new MWException( "More than one user found " .
+									   "with the ID: $user" );
+			}
 
-		$this->ldapData = $entry[0];
-		$config
-			= ConfigFactory::getDefaultInstance()->makeConfig( 'LdapGroups' );
-		if ( $config->get( "UseMatchingRuleInChainQuery" ) ) {
-			$this->doGroupMapUsingChain( $this->ldapData['dn'] );
-		}
+			$this->ldapData[ $user->getId() ] = $entry[0];
+			$config
+				= ConfigFactory::getDefaultInstance()->makeConfig( 'LdapGroups' );
+			if ( $config->get( "UseMatchingRuleInChainQuery" ) ) {
+				$this->doGroupMapUsingChain(
+					$user, $this->ldapData[ $user->getId() ]['dn']
+				);
+			}
 
-		return $this->ldapData;
+		}
+		return $this->ldapData[ $user->getId() ];
+	}
+
+	/**
+	 * Convenience function to add user to a group from the extended queries
+	 *
+	 * @param User $user to add to
+	 * @param string $groupDN that the user
+	 */
+	protected function addMemberof( User $user, $groupDN ) {
+		$this->ldapData[ $user->getId() ]['memberof'][] = $groupDN;
+	}
+
+	protected function getLdapMemberships( User $user ) {
+		$memberof = [];
+		$ldapData = $this->getLDAPData( $user );
+		if ( isset( $ldapData['memberof'] ) ) {
+			wfDebugLog(
+				__METHOD__, "memberof: " .
+				var_export( $ldapData['memberof'], true )
+			);
+			$tmp = array_map( 'strtolower', $ldapData['memberof'] );
+			unset( $tmp['count'] );
+#			$memberof = array_flip( $tmp );
+			$memberof = $tmp;
+		}
+		return $memberof;
+	}
+
+	public function getGroups( User $user ) {
+		$memberof = $this->getLdapMemberships( $user );
+		$groups = [];
+		foreach ( $memberof as $groupDn ) {
+			if ( isset( $this->ldapGroupMap[ $groupDn ] ) ) {
+				$groups[ $this->ldapGroupMap[ $groupDn ] ] = true;
+			}
+		}
+		return array_keys( $groups );
+	}
+
+	protected function alreadyInControlledGroups( User $user ) {
+		return array_intersect( $this->ldapGroupMap, $user->getGroups() );
+	}
+
+	protected function notInControlledGroups( User $user ) {
+		return array_diff( $this->ldapGroupMap, $user->getGroups() );
+	}
+
+	protected function addControlledGroups( $memberOf, $notInControlledGroups ) {
+		return array_keys( array_flip(
+			array_intersect_key( $notInControlledGroups, $memberOf )
+		) );
 	}
 
 	/**
@@ -276,11 +358,10 @@ class LdapGroups {
 			}
 		}
 
-		foreach ( $addThese as $group ) {
-			$user->addGroup( $group );
-			wfDebugLog( __METHOD__, "Adding: $group" );
+		foreach ( $ldapGroups as $in ) {
+			if ( !in_array( $in, $groups ) ) {
+				$user->addGroup( $in );
+			}
 		}
-		// saving now causes problems. ** WHAT PROBLEMS? **
-		# $user->saveSettings();
 	}
 }
